@@ -44,7 +44,7 @@ async fn main() -> Result<(), Box<dyn Error>> {
         loop {
             interval1.tick().await;
             let ping_time = ping_website(&query).await;
-            PING_DATA.lock().unwrap().push_total(ping_time.unwrap().as_millis() as f64);
+            PING_DATA.lock().unwrap().push_total(ping_time.unwrap().as_millis() as f64, MAX_PING_DATA_POINTS);
         }
     });
 
@@ -56,9 +56,9 @@ async fn main() -> Result<(), Box<dyn Error>> {
             let bytes = get_total_bytes().await;
             let sub = (bytes.0 - last_upload_download.0, bytes.1 - last_upload_download.1);
             last_upload_download = bytes;
-            DATA_SENT.lock().unwrap().push_total(sub.0 as i64);
-            DATA_RECIEVED.lock().unwrap().push_total(sub.1 as i64);
-        }
+            DATA_SENT.lock().unwrap().push_total(sub.0 as i64, MAX_UPLOAD_DOWNLOAD_DATA_POINTS); // this doesnt restrict the size of the data for some reason
+            DATA_RECIEVED.lock().unwrap().push_total(sub.1 as i64, MAX_UPLOAD_DOWNLOAD_DATA_POINTS);
+        }  
     });
 
     run().await?;
@@ -85,16 +85,16 @@ async fn get_total_bytes() -> (u64, u64) { // (sent, received)
 }
 
 pub trait PushTotal<T> {
-    fn push_total(&mut self, new_value: T);
+    fn push_total(&mut self, new_value: T, max: usize);
 }
 
 impl<T> PushTotal<T> for VecDeque<T>
 where
     T: Copy + Default,
 {
-    fn push_total(&mut self, new_value: T) {
+    fn push_total(&mut self, new_value: T, max: usize) {
         self.push_back(new_value);
-        if self.len() > MAX_PING_DATA_POINTS {
+        if self.len() > max {
             self.pop_front();
         }
     }
@@ -130,7 +130,7 @@ fn render_upload_chart(f: &mut Frame, area: Rect) {
     last_value = format!("Upload: {} B/s", last_value);
     let datasets = vec![Dataset::default()
         .marker(symbols::Marker::Dot)
-        .style(Style::default().fg(Color::Green))
+        .style(Style::default().fg(Color::LightYellow)) //COLOR
         .graph_type(GraphType::Line)
         .data(&data)];
     let chart = Chart::new(datasets)
@@ -138,7 +138,7 @@ fn render_upload_chart(f: &mut Frame, area: Rect) {
             Block::default()
                 .title(
                     Title::default()
-                        .content(last_value.blue().bold())
+                        .content(last_value.light_yellow().bold()) //COLOR
                         .alignment(Alignment::Center),
                 )
                 .borders(Borders::ALL),
@@ -168,7 +168,7 @@ fn render_download_chart(f: &mut Frame, area: Rect) {
     last_value = format!("Download: {} B/s", last_value);
     let datasets = vec![Dataset::default()
         .marker(symbols::Marker::Dot)
-        .style(Style::default().fg(Color::Red))
+        .style(Style::default().fg(Color::LightMagenta)) //COLOR
         .graph_type(GraphType::Line)
         .data(&data)];
     let chart = Chart::new(datasets)
@@ -176,7 +176,7 @@ fn render_download_chart(f: &mut Frame, area: Rect) {
             Block::default()
                 .title(
                     Title::default()
-                        .content(last_value.blue().bold())
+                        .content(last_value.light_magenta().bold()) //COLOR
                         .alignment(Alignment::Center),
                 )
                 .borders(Borders::ALL),
@@ -221,7 +221,7 @@ fn render_ping_chart(f: &mut Frame, area: Rect) {
     last_value = format!("Ping: {}ms", last_value);
     let datasets = vec![Dataset::default()
         .marker(symbols::Marker::Dot)
-        .style(Style::default().fg(Color::LightBlue))
+        .style(Style::default().fg(Color::LightBlue)) //COLOR
         .graph_type(GraphType::Line)
         
         .data(&data)];
@@ -230,7 +230,7 @@ fn render_ping_chart(f: &mut Frame, area: Rect) {
             Block::default()
                 .title(
                     Title::default()
-                        .content(last_value.blue().bold())
+                        .content(last_value.blue().bold()) //COLOR
                         .alignment(Alignment::Center),
                 )
                 .borders(Borders::ALL),
