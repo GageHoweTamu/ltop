@@ -21,7 +21,6 @@ use std::{error::Error, io};
 use sysinfo::*;
 use tokio::time::interval;
 use tokio::*;
-// mod system_functions;
 
 pub static PING_DATA: Mutex<VecDeque<f64>> = Mutex::new(VecDeque::new()); // Ping times
 pub static DATA_SENT: Mutex<VecDeque<i64>> = Mutex::new(VecDeque::new()); // Total bytes sent
@@ -30,24 +29,18 @@ pub static DATA_RECIEVED: Mutex<VecDeque<i64>> = Mutex::new(VecDeque::new()); //
 const MAX_PING_DATA_POINTS: usize = 150;
 const MAX_UPLOAD_DOWNLOAD_DATA_POINTS: usize = 50;
 
-// TODO: Add a function to get the total bytes received across all interfaces
-//          - Step 1: get total bytes sent and recieved at the beginning
-//          - Step 2: get total bytes sent and recieved at each interval
-//          - Step 3: subtract and divide by the interval time to get the average bytes sent and recieved
-
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn Error>> {
     enable_raw_mode()?;
     let mut stdout = io::stdout();
     execute!(stdout, EnterAlternateScreen, EnableMouseCapture)?;
     let backend = CrosstermBackend::new(stdout);
-    let mut terminal = Terminal::new(backend)?;
-    let mut window = [0.0, 0.0];
+    let terminal = Terminal::new(backend)?;
+    let window = [0.0, 0.0];
     let query = String::from("google.com");
 
     let mut interval1 = time::interval(Duration::from_millis(100));
     tokio::spawn(async move {
-        // PING DATA
         loop {
             interval1.tick().await;
             let ping_time = ping_website(&query).await;
@@ -60,7 +53,6 @@ async fn main() -> Result<(), Box<dyn Error>> {
 
     let mut interval2 = time::interval(Duration::from_millis(1000));
     tokio::spawn(async move {
-        // TOTAL BYTES SENT AND RECEIVED
         let mut last_upload_download = get_total_bytes().await;
         loop {
             interval2.tick().await;
@@ -73,7 +65,7 @@ async fn main() -> Result<(), Box<dyn Error>> {
             DATA_SENT
                 .lock()
                 .unwrap()
-                .push_total(sub.0 as i64, MAX_UPLOAD_DOWNLOAD_DATA_POINTS); // this doesnt restrict the size of the data for some reason
+                .push_total(sub.0 as i64, MAX_UPLOAD_DOWNLOAD_DATA_POINTS);
             DATA_RECIEVED
                 .lock()
                 .unwrap()
@@ -90,7 +82,6 @@ async fn main() -> Result<(), Box<dyn Error>> {
 }
 
 async fn get_total_bytes() -> (u64, u64) {
-    // (sent, received)
     let mut system = System::new_all();
     system.refresh_all();
     let mut total_outcome: u64 = 0;
@@ -146,11 +137,11 @@ fn render_upload_chart(f: &mut Frame, area: Rect) {
     let mut last_value: String = String::from("0");
     for i in 0..clone.len() {
         data.push((i as f64, clone[i] as f64));
-        last_value = clone[i].to_string(); // make this more efficient later
+        last_value = clone[i].to_string(); // Is there a more efficient way?
     }
     last_value = format!("Upload: {} B/s", last_value);
     let datasets = vec![Dataset::default()
-        .marker(symbols::Marker::Braille) //SYMBOL
+        .marker(symbols::Marker::Braille)
         .style(Style::default().fg(Color::LightYellow)) //COLOR
         .graph_type(GraphType::Line)
         .data(&data)];
@@ -183,7 +174,7 @@ fn render_download_chart(f: &mut Frame, area: Rect) {
     let mut last_value: String = String::from("0");
     for i in 0..clone.len() {
         data.push((i as f64, clone[i] as f64));
-        last_value = clone[i].to_string(); // make this more efficient later
+        last_value = clone[i].to_string();
     }
     last_value = format!("Download: {} B/s", last_value);
     let datasets = vec![Dataset::default()
@@ -244,7 +235,7 @@ fn render_ping_chart(f: &mut Frame, area: Rect) {
     let mut last_value: String = String::from("0");
     for i in 0..clone.len() {
         data.push((i as f64, clone[i]));
-        last_value = clone[i].to_string(); // make this more efficient later
+        last_value = clone[i].to_string();
     }
     last_value = format!("Ping: {}ms", last_value);
     let datasets = vec![Dataset::default()
